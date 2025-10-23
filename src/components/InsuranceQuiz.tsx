@@ -21,6 +21,26 @@ const InsuranceQuiz = () => {
     featureScore: true,
     dynamicFinderScore: true,
   });
+  // Modal state for Dynamic Finder Score explanation
+  const [showScoreModal, setShowScoreModal] = useState(false);
+  const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
+  const [hoveredProduct, setHoveredProduct] = useState<ProcessedInsuranceProduct | null>(null);
+
+  // Modal timeout for smooth hover behavior
+  const [modalTimeoutId, setModalTimeoutId] = useState<NodeJS.Timeout | null>(null);
+
+  // Sort state
+  const [sortColumn, setSortColumn] = useState<'priceRating' | 'featureScore' | 'dynamicFinderScore' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Comparison modal state
+  const [showComparisonModal, setShowComparisonModal] = useState(false);
+  const [selectedProductForComparison, setSelectedProductForComparison] = useState<ProcessedInsuranceProduct | null>(null);
+
+  // Voice control state
+  const [isListening, setIsListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
 
   const states: AustralianState[] = ['NSW', 'VIC', 'TAS', 'WA', 'SA', 'QLD'];
   const ageGroups: AgeGroup[] = ['< 25 years', '< 35 years', '< 65 years'];
@@ -39,6 +59,32 @@ const InsuranceQuiz = () => {
     };
     loadData();
   }, []);
+
+  // Initialize voice recognition on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+        setRecognition(recognition);
+        setVoiceSupported(true);
+      } else {
+        setVoiceSupported(false);
+      }
+    }
+  }, []);
+
+  // Cleanup recognition on component unmount
+  useEffect(() => {
+    return () => {
+      if (recognition) {
+        recognition.stop();
+      }
+    };
+  }, [recognition]);
 
   const handleStateSelect = (state: AustralianState) => {
     setQuizData({ ...quizData, state });
@@ -187,6 +233,144 @@ const InsuranceQuiz = () => {
       priceRating: true,
       featureScore: true,
       dynamicFinderScore: true,
+    });
+  };
+
+  // Helper functions for modal with timeout
+  const showModal = (product: ProcessedInsuranceProduct, position: { x: number; y: number }) => {
+    if (modalTimeoutId) {
+      clearTimeout(modalTimeoutId);
+      setModalTimeoutId(null);
+    }
+    setHoveredProduct(product);
+    setModalPosition(position);
+    setShowScoreModal(true);
+  };
+
+  const hideModalWithDelay = () => {
+    const timeoutId = setTimeout(() => {
+      setShowScoreModal(false);
+      setHoveredProduct(null);
+      setModalTimeoutId(null);
+    }, 100);
+    setModalTimeoutId(timeoutId);
+  };
+
+  const cancelHideModal = () => {
+    if (modalTimeoutId) {
+      clearTimeout(modalTimeoutId);
+      setModalTimeoutId(null);
+    }
+  };
+
+  // Sponsored products logic
+  const sponsoredProducts = [
+    'Coles Comprehensive',
+    'Qantas Comprehensive', 
+    'Bingle Comprehensive',
+    'Huddle Comprehensive',
+    'Kogan Comprehensive'
+  ];
+
+  const isSponsoredProduct = (productName: string): boolean => {
+    return sponsoredProducts.includes(productName);
+  };
+
+  const getComparisonProducts = (selectedProduct: ProcessedInsuranceProduct): ProcessedInsuranceProduct[] => {
+    // Get sponsored products that are available in current results
+    const availableSponsored = filteredProducts.filter(product => 
+      isSponsoredProduct(product.name) && product.id !== selectedProduct.id
+    );
+
+    // Sort by dynamic finder score and return top 2
+    return availableSponsored
+      .sort((a, b) => b.dynamicFinderScore - a.dynamicFinderScore)
+      .slice(0, 2);
+  };
+
+  const handleGoToSite = (productName: string) => {
+    // This would redirect to the specific provider's application page
+    // For now, we'll use placeholder URLs
+    const providerUrls: { [key: string]: string } = {
+      'Coles Comprehensive': 'https://www.coles.com.au/insurance',
+      'Qantas Comprehensive': 'https://www.qantas.com/insurance',
+      'Bingle Comprehensive': 'https://www.bingle.com.au',
+      'Huddle Comprehensive': 'https://www.huddle.com.au',
+      'Kogan Comprehensive': 'https://www.kogan.com/insurance'
+    };
+    
+    const url = providerUrls[productName];
+    if (url) {
+      window.open(url, '_blank');
+    }
+  };
+
+  const handleContinueComparison = (product: ProcessedInsuranceProduct) => {
+    setSelectedProductForComparison(product);
+    setShowComparisonModal(true);
+  };
+
+  // Logo helper function
+  const getLogoUrl = (providerId: string): string | null => {
+    // Default to .png extension - the browser will handle 404s
+    return `/logos/${providerId}.png`;
+  };
+
+  // Sort functionality
+  const handleSort = (column: 'priceRating' | 'featureScore' | 'dynamicFinderScore') => {
+    if (sortColumn === column) {
+      // Toggle direction if same column
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New column, default to descending (highest first)
+      setSortColumn(column);
+      setSortDirection('desc');
+    }
+  };
+
+  // Get sorted products
+  const getSortedProducts = () => {
+    if (!sortColumn) {
+      // Default sorting: sponsored products first, then by dynamic finder score
+      return [...filteredProducts].sort((a, b) => {
+        const aIsSponsored = isSponsoredProduct(a.name);
+        const bIsSponsored = isSponsoredProduct(b.name);
+        
+        // If one is sponsored and the other isn't, sponsored comes first
+        if (aIsSponsored && !bIsSponsored) return -1;
+        if (!aIsSponsored && bIsSponsored) return 1;
+        
+        // If both are sponsored or both are not sponsored, sort by dynamic finder score
+        return b.dynamicFinderScore - a.dynamicFinderScore;
+      });
+    }
+
+    return [...filteredProducts].sort((a, b) => {
+      let aValue: number;
+      let bValue: number;
+
+      switch (sortColumn) {
+        case 'priceRating':
+          aValue = a.priceRating;
+          bValue = b.priceRating;
+          break;
+        case 'featureScore':
+          aValue = a.averageFeatureScore;
+          bValue = b.averageFeatureScore;
+          break;
+        case 'dynamicFinderScore':
+          aValue = a.dynamicFinderScore;
+          bValue = b.dynamicFinderScore;
+          break;
+        default:
+          return 0;
+      }
+
+      if (sortDirection === 'asc') {
+        return aValue - bValue;
+      } else {
+        return bValue - aValue;
+      }
     });
   };
 
@@ -368,6 +552,39 @@ const InsuranceQuiz = () => {
     borderBottom: '1px solid #e5e7eb',
   };
 
+  const thCenterStyle: React.CSSProperties = {
+    backgroundColor: '#f3f4f6',
+    padding: '12px',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    color: '#374151',
+    borderBottom: '1px solid #e5e7eb',
+  };
+
+  const thSortableStyle: React.CSSProperties = {
+    backgroundColor: '#f3f4f6',
+    padding: '12px',
+    textAlign: 'left',
+    fontWeight: 'bold',
+    color: '#374151',
+    borderBottom: '1px solid #e5e7eb',
+    cursor: 'pointer',
+    userSelect: 'none',
+    transition: 'background-color 0.2s',
+  };
+
+  const thSortableCenterStyle: React.CSSProperties = {
+    backgroundColor: '#f3f4f6',
+    padding: '12px',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    color: '#374151',
+    borderBottom: '1px solid #e5e7eb',
+    cursor: 'pointer',
+    userSelect: 'none',
+    transition: 'background-color 0.2s',
+  };
+
   const tdStyle: React.CSSProperties = {
     padding: '16px 12px',
     borderBottom: '1px solid #e5e7eb',
@@ -377,10 +594,10 @@ const InsuranceQuiz = () => {
 
   // Helper function to get color for feature score
   const getFeatureScoreColor = (score: number): string => {
-    if (score >= 8.0) return '#10b981'; // Green for excellent
-    if (score >= 6.0) return '#f59e0b'; // Orange for good
-    if (score >= 4.0) return '#ef4444'; // Red for fair
-    return '#6b7280'; // Gray for poor
+    if (score >= 9.0) return '#3b82f6'; // Blue for excellent (9+)
+    if (score >= 7.0) return '#10b981'; // Green for very good (7-9)
+    if (score >= 5.0) return '#f59e0b'; // Orange/Yellow for good (5-7)
+    return '#ef4444'; // Red for poor (below 5)
   };
 
   // Component for circular progress indicator
@@ -394,10 +611,10 @@ const InsuranceQuiz = () => {
     
     // Get color based on percentage
     const getProgressColor = (percentage: number): string => {
-      if (percentage >= 80) return '#10b981'; // Green
-      if (percentage >= 60) return '#f59e0b'; // Orange/Yellow
-      if (percentage >= 40) return '#ef4444'; // Red
-      return '#6b7280'; // Gray
+      if (percentage >= 90) return '#3b82f6'; // Blue for excellent (90%+)
+      if (percentage >= 70) return '#10b981'; // Green for very good (70-90%)
+      if (percentage >= 50) return '#f59e0b'; // Orange/Yellow for good (50-70%)
+      return '#ef4444'; // Red for poor (below 50%)
     };
 
     const progressColor = getProgressColor(percentage);
@@ -499,6 +716,466 @@ const InsuranceQuiz = () => {
           borderRadius: '50%',
           animation: 'spin 1s linear infinite',
         }} />
+      </div>
+    );
+  };
+
+  // Logo component with fallback
+  const ProductLogo = ({ providerId, productName }: { providerId: string; productName: string }) => {
+    const [logoSrc, setLogoSrc] = useState<string | null>(null);
+    const [hasError, setHasError] = useState(false);
+
+    // Try different extensions if the first one fails
+    useEffect(() => {
+      const extensions = ['png', 'jpg', 'jpeg', 'webp', 'svg'];
+      let currentIndex = 0;
+
+      const tryNextExtension = () => {
+        if (currentIndex >= extensions.length) {
+          setHasError(true);
+          return;
+        }
+
+        const testSrc = `/logos/${providerId}.${extensions[currentIndex]}`;
+        const img = new Image();
+        
+        img.onload = () => {
+          setLogoSrc(testSrc);
+          setHasError(false);
+        };
+        
+        img.onerror = () => {
+          currentIndex++;
+          tryNextExtension();
+        };
+        
+        img.src = testSrc;
+      };
+
+      setHasError(false);
+      setLogoSrc(null);
+      tryNextExtension();
+    }, [providerId]);
+
+    if (hasError || !logoSrc) {
+      // Return a placeholder or company initials
+      const initials = productName.split(' ').map(word => word[0]).join('').substring(0, 2).toUpperCase();
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '60px',
+            height: '60px',
+            backgroundColor: '#e5e7eb',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '8px',
+            fontSize: '1rem',
+            fontWeight: 'bold',
+            color: '#6b7280'
+          }}>
+            {initials}
+          </div>
+          <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>{productName}</span>
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <img
+          src={logoSrc}
+          alt={`${productName} logo`}
+          style={{
+            width: '60px',
+            height: '60px',
+            objectFit: 'contain',
+            borderRadius: '8px',
+            backgroundColor: '#f9fafb',
+            padding: '6px',
+          }}
+          onError={() => setHasError(true)}
+        />
+        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>{productName}</span>
+      </div>
+    );
+  };
+
+  // Sortable header component
+  const SortableHeader = ({ 
+    column, 
+    children, 
+    centered = false 
+  }: { 
+    column: 'priceRating' | 'featureScore' | 'dynamicFinderScore';
+    children: React.ReactNode;
+    centered?: boolean;
+  }) => {
+    const isActive = sortColumn === column;
+    
+    const SortIcon = () => (
+      <svg 
+        width="12" 
+        height="12" 
+        viewBox="0 0 12 12" 
+        fill="none" 
+        style={{
+          transform: isActive && sortDirection === 'asc' ? 'rotate(180deg)' : 'rotate(0deg)',
+          transition: 'transform 0.2s ease',
+          opacity: isActive ? 1 : 0.4
+        }}
+      >
+        <path 
+          d="M3 4.5L6 7.5L9 4.5" 
+          stroke="currentColor" 
+          strokeWidth="1.5" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+
+    return (
+      <th 
+        style={centered ? thSortableCenterStyle : thSortableStyle}
+        onClick={() => handleSort(column)}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = '#e5e7eb';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = '#f3f4f6';
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: centered ? 'center' : 'flex-start', gap: '6px' }}>
+          {children}
+          <SortIcon />
+        </div>
+      </th>
+    );
+  };
+
+  // Pie Chart component for score breakdown
+  const PieChart = ({ pricePercentage, featurePercentage, size = 120 }: { pricePercentage: number; featurePercentage: number; size?: number }) => {
+    const radius = size / 2 - 10;
+    const circumference = 2 * Math.PI * radius;
+    const priceArcLength = (pricePercentage / 100) * circumference;
+    const featureArcLength = (featurePercentage / 100) * circumference;
+    
+    return (
+      <div style={{ position: 'relative', width: size, height: size }}>
+        <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+          {/* Price Rating segment */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke="#3b82f6"
+            strokeWidth="20"
+            fill="none"
+            strokeDasharray={`${priceArcLength} ${circumference}`}
+            strokeLinecap="round"
+          />
+          {/* Feature Score segment */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke="#10b981"
+            strokeWidth="20"
+            fill="none"
+            strokeDasharray={`${featureArcLength} ${circumference}`}
+            strokeDashoffset={-priceArcLength}
+            strokeLinecap="round"
+          />
+        </svg>
+        {/* Center text */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '0.75rem',
+          fontWeight: 'bold',
+          color: '#374151',
+          textAlign: 'center',
+          transform: 'rotate(0deg)',
+        }}>
+          Dynamic<br/>Score
+        </div>
+      </div>
+    );
+  };
+
+  // Modal component for score explanation
+  const ScoreExplanationModal = () => {
+    if (!showScoreModal || !hoveredProduct) return null;
+
+    const isPricePriority = quizData.priority === 'Price';
+    const pricePercentage = isPricePriority ? 85 : 15;
+    const featurePercentage = isPricePriority ? 15 : 85;
+
+    return (
+      <div 
+        style={{
+          position: 'fixed',
+          left: modalPosition.x,
+          top: modalPosition.y,
+          backgroundColor: 'white',
+          border: '1px solid #e5e7eb',
+          borderRadius: '8px',
+          padding: '16px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          zIndex: 1000,
+          minWidth: '280px',
+          maxWidth: '320px',
+        }}
+        onMouseEnter={cancelHideModal}
+        onMouseLeave={hideModalWithDelay}
+      >
+        <h3 style={{ margin: '0 0 12px 0', fontSize: '1rem', fontWeight: 'bold', color: '#374151' }}>
+          Dynamic Finder Score Breakdown
+        </h3>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px' }}>
+          <PieChart pricePercentage={pricePercentage} featurePercentage={featurePercentage} size={100} />
+          
+          <div style={{ flex: 1 }}>
+            <div style={{ marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <div style={{ width: '12px', height: '12px', backgroundColor: '#3b82f6', borderRadius: '2px' }}></div>
+                <span style={{ fontSize: '0.875rem', color: '#374151' }}>Price Rating: {pricePercentage}%</span>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#6b7280', marginLeft: '20px' }}>
+                {hoveredProduct.priceRating.toFixed(1)}/9.9
+              </div>
+            </div>
+            
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <div style={{ width: '12px', height: '12px', backgroundColor: '#10b981', borderRadius: '2px' }}></div>
+                <span style={{ fontSize: '0.875rem', color: '#374151' }}>Feature Score: {featurePercentage}%</span>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#6b7280', marginLeft: '20px' }}>
+                {hoveredProduct.averageFeatureScore.toFixed(1)}/10.0
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div style={{ 
+          padding: '8px', 
+          backgroundColor: '#f9fafb', 
+          borderRadius: '4px',
+          fontSize: '0.75rem',
+          color: '#6b7280'
+        }}>
+          Your priority: <strong>{quizData.priority}</strong><br/>
+          Result: <strong>{hoveredProduct.dynamicFinderScore.toFixed(1)}</strong>
+        </div>
+      </div>
+    );
+  };
+
+
+
+
+
+  // Comparison Modal component
+  const ComparisonModal = () => {
+    if (!showComparisonModal || !selectedProductForComparison) return null;
+
+    const comparisonProducts = getComparisonProducts(selectedProductForComparison);
+
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          padding: '2rem',
+          maxWidth: '900px',
+          width: '90%',
+          maxHeight: '80vh',
+          overflow: 'auto',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1f2937', margin: 0 }}>
+              Compare Insurance Products
+            </h2>
+            <button
+              onClick={() => setShowComparisonModal(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '1.5rem',
+                cursor: 'pointer',
+                color: '#6b7280'
+              }}
+            >
+              ×
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+            {/* Selected Product */}
+            <div style={{
+              border: '2px solid #3b82f6',
+              borderRadius: '8px',
+              padding: '1rem',
+              backgroundColor: '#f8fafc'
+            }}>
+              <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                <ProductLogo 
+                  providerId={selectedProductForComparison.providerId} 
+                  productName={selectedProductForComparison.name} 
+                />
+                <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#3b82f6', fontWeight: 'bold' }}>
+                  Your Selection
+                </div>
+              </div>
+              
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Price Score:</span>
+                  <span style={{ fontWeight: 'bold' }}>{selectedProductForComparison.priceRating.toFixed(1)}/9.9</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Feature Score:</span>
+                  <span style={{ fontWeight: 'bold' }}>{selectedProductForComparison.averageFeatureScore.toFixed(1)}/10.0</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Dynamic Score:</span>
+                  <span style={{ 
+                    fontWeight: 'bold',
+                    color: getFeatureScoreColor(selectedProductForComparison.dynamicFinderScore)
+                  }}>
+                    {selectedProductForComparison.dynamicFinderScore.toFixed(1)}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <h4 style={{ fontSize: '0.875rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#374151' }}>
+                  Key Features:
+                </h4>
+                <div style={{ fontSize: '0.75rem', display: 'grid', gap: '2px' }}>
+                  {selectedProductForComparison.features.newCarReplacement && <span>• New Car Replacement</span>}
+                  {selectedProductForComparison.features.roadsideAssistance && <span>• Roadside Assistance</span>}
+                  {selectedProductForComparison.features.storm && <span>• Storm Coverage</span>}
+                  {selectedProductForComparison.features.windscreen && <span>• Windscreen</span>}
+                  {selectedProductForComparison.features.accidentalDamage && <span>• Accidental Damage</span>}
+                </div>
+              </div>
+            </div>
+
+            {/* Comparison Products */}
+            {comparisonProducts.map((product, index) => (
+              <div key={product.id} style={{
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                padding: '1rem',
+              }}>
+                <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                  <ProductLogo 
+                    providerId={product.providerId} 
+                    productName={product.name} 
+                  />
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#10b981', fontWeight: 'bold' }}>
+                    Alternative Option
+                  </div>
+                </div>
+                
+                <div style={{ marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Price Score:</span>
+                    <span style={{ fontWeight: 'bold' }}>{product.priceRating.toFixed(1)}/9.9</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Feature Score:</span>
+                    <span style={{ fontWeight: 'bold' }}>{product.averageFeatureScore.toFixed(1)}/10.0</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Dynamic Score:</span>
+                    <span style={{ 
+                      fontWeight: 'bold',
+                      color: getFeatureScoreColor(product.dynamicFinderScore)
+                    }}>
+                      {product.dynamicFinderScore.toFixed(1)}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '1rem' }}>
+                  <h4 style={{ fontSize: '0.875rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#374151' }}>
+                    Key Features:
+                  </h4>
+                  <div style={{ fontSize: '0.75rem', display: 'grid', gap: '2px' }}>
+                    {product.features.newCarReplacement && <span>• New Car Replacement</span>}
+                    {product.features.roadsideAssistance && <span>• Roadside Assistance</span>}
+                    {product.features.storm && <span>• Storm Coverage</span>}
+                    {product.features.windscreen && <span>• Windscreen</span>}
+                    {product.features.accidentalDamage && <span>• Accidental Damage</span>}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleGoToSite(product.name)}
+                  style={{
+                    width: '100%',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#2563eb';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#3b82f6';
+                  }}
+                >
+                  Go to {product.name.split(' ')[0]} site
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+            <button
+              onClick={() => setShowComparisonModal(false)}
+              style={{
+                backgroundColor: '#6b7280',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '8px 24px',
+                fontSize: '0.875rem',
+                cursor: 'pointer'
+              }}
+            >
+              Close Comparison
+            </button>
+          </div>
+        </div>
       </div>
     );
   };
@@ -690,24 +1367,56 @@ const InsuranceQuiz = () => {
       
       {filteredProducts.length > 0 ? (
         <div style={{ overflowX: 'auto' }}>
+          <div style={{ 
+            marginBottom: '1rem', 
+            padding: '8px 12px', 
+            backgroundColor: '#eff6ff', 
+            borderRadius: '6px',
+            fontSize: '0.875rem',
+            color: '#1e40af',
+            border: '1px solid #dbeafe'
+          }}>
+            💡 <strong>Tip:</strong> Click on Price Rating, Feature Score, or Dynamic Finder Score column headers to sort the results!
+            {sortColumn && (
+              <span style={{ marginLeft: '8px' }}>
+                Currently sorted by <strong>{sortColumn === 'priceRating' ? 'Price Rating' : sortColumn === 'featureScore' ? 'Feature Score' : 'Dynamic Finder Score'}</strong> ({sortDirection === 'desc' ? 'highest first' : 'lowest first'})
+                <button 
+                  onClick={() => { setSortColumn(null); setSortDirection('desc'); }}
+                  style={{
+                    marginLeft: '8px',
+                    background: 'none',
+                    border: 'none',
+                    color: '#1e40af',
+                    textDecoration: 'underline',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem'
+                  }}
+                >
+                  Clear sort
+                </button>
+              </span>
+            )}
+          </div>
           <table style={tableStyle}>
             <thead>
               <tr>
-                <th style={thStyle}>Insurance Provider</th>
-                <th style={thStyle}>Price Rating</th>
-                <th style={thStyle}>Feature Score</th>
-                <th style={thStyle}>Dynamic Finder Score</th>
-                {quizData.priority === 'Features' && (
-                  <th style={thStyle}>Key Features</th>
-                )}
+                <th style={thStyle}>Product</th>
+                <SortableHeader column="priceRating">Price Rating</SortableHeader>
+                <SortableHeader column="featureScore">Feature Score</SortableHeader>
+                <SortableHeader column="dynamicFinderScore" centered>Dynamic Finder Score</SortableHeader>
+                <th style={thStyle}>Key Features</th>
+                <th style={{...thStyle, width: '100px', textAlign: 'center'}}></th>
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.slice(0, 10).map((product) => (
-                <tr key={product.id}>
-                  <td style={tdStyle}>
-                    <strong>{product.name}</strong>
-                  </td>
+              {getSortedProducts().slice(0, 10).map((product) => {
+                return (
+                  <tr key={product.id}>
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <ProductLogo providerId={product.providerId} productName={product.name} />
+                      </div>
+                    </td>
                   <td style={tdStyle}>
                     <div style={{ display: 'flex', justifyContent: 'center' }}>
                       {scoresLoading.priceRating ? (
@@ -738,25 +1447,92 @@ const InsuranceQuiz = () => {
                           borderRadius: '12px',
                           fontSize: '1rem',
                           fontWeight: 'bold'
-                        }}>
+                        }}
+                        onMouseEnter={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          showModal(product, { x: rect.left + rect.width / 2, y: rect.top - 100 });
+                        }}
+                        onMouseLeave={hideModalWithDelay}
+                        >
                           {product.dynamicFinderScore.toFixed(1)}
                         </span>
                       )}
                     </div>
                   </td>
-                  {quizData.priority === 'Features' && (
                     <td style={tdStyle}>
-                      <div style={{ fontSize: '0.875rem' }}>
-                        {product.features.newCarReplacement && <span style={{ color: '#059669' }}>✓ New Car Replacement</span>}
-                        {product.features.roadsideAssistance && <span style={{ color: '#059669', marginLeft: '8px' }}>✓ Roadside Assistance</span>}
-                        {product.features.storm && <span style={{ color: '#059669', marginLeft: '8px' }}>✓ Storm Coverage</span>}
-                        {product.features.windscreen && <span style={{ color: '#059669', marginLeft: '8px' }}>✓ Windscreen</span>}
-                        {product.features.accidentalDamage && <span style={{ color: '#059669', marginLeft: '8px' }}>✓ Accidental Damage</span>}
+                      <div style={{ 
+                        fontSize: '0.875rem',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, 1fr)',
+                        gap: '4px'
+                      }}>
+                        {product.features.newCarReplacement && <span style={{ color: '#374151' }}>• New Car Replacement</span>}
+                        {product.features.roadsideAssistance && <span style={{ color: '#374151' }}>• Roadside Assistance</span>}
+                        {product.features.storm && <span style={{ color: '#374151' }}>• Storm Coverage</span>}
+                        {product.features.windscreen && <span style={{ color: '#374151' }}>• Windscreen</span>}
+                        {product.features.accidentalDamage && <span style={{ color: '#374151' }}>• Accidental Damage</span>}
                       </div>
                     </td>
-                  )}
+                   <td style={tdStyle}>
+                     <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        {isSponsoredProduct(product.name) ? (
+                          <button
+                            onClick={() => handleGoToSite(product.name)}
+                            style={{
+                              backgroundColor: '#3b82f6',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              padding: '8px 12px',
+                              fontSize: '0.8rem',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                              transition: 'background-color 0.2s',
+                              minWidth: '85px',
+                              whiteSpace: 'nowrap'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#2563eb';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = '#3b82f6';
+                            }}
+                          >
+                            Go to site
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleContinueComparison(product)}
+                            style={{
+                              backgroundColor: '#3b82f6',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              padding: '8px 12px',
+                              fontSize: '0.8rem',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                              transition: 'background-color 0.2s',
+                              minWidth: '85px',
+                              whiteSpace: 'nowrap'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#2563eb';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = '#3b82f6';
+                            }}
+                          >
+                            Continue
+                          </button>
+                        )}
+                      </div>
+                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           
@@ -828,6 +1604,10 @@ const InsuranceQuiz = () => {
           </div>
         )}
       </div>
+      <ScoreExplanationModal />
+
+      <ComparisonModal />
+
     </div>
   );
 };

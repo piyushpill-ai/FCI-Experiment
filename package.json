@@ -9,23 +9,36 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:server": "ts-node --esm server/index.ts",
+    "dev:full": "concurrently \"npm run dev\" \"npm run dev:server\"",
     "build": "tsc && vite build",
+    "build:server": "tsc server/**/*.ts --outDir dist/server --module esnext --target es2020",
     "preview": "vite preview",
-    "start": "npm run build && npm run preview -- --port $PORT --host 0.0.0.0"
+    "start": "npm run build && npm run preview -- --port $PORT --host 0.0.0.0",
+    "server": "node dist/server/index.js"
   },
   "dependencies": {
     "@types/papaparse": "^5.3.16",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.1",
+    "helmet": "^8.1.0",
     "papaparse": "^5.5.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
     "autoprefixer": "^10.4.21",
+    "concurrently": "^9.2.0",
+    "nodemon": "^3.1.10",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.11",
+    "ts-node": "^10.9.2",
     "typescript": "^5.0.4",
     "vite": "^5.0.0"
   }
