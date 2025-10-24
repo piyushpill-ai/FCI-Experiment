@@ -6,7 +6,6 @@ import {
   CompareInsuranceResponse, 
   QuickQuoteRequest, 
   QuickQuoteResponse,
-  ProductDetailsRequest,
   ProductDetailsResponse,
   AIAgentRequest,
   AIAgentResponse

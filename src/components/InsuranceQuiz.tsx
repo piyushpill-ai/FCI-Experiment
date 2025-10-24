@@ -38,8 +38,7 @@ const InsuranceQuiz = () => {
   const [selectedProductForComparison, setSelectedProductForComparison] = useState<ProcessedInsuranceProduct | null>(null);
 
   // Voice control state
-  const [isListening, setIsListening] = useState(false);
-  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [_voiceSupported, setVoiceSupported] = useState(false);
   const [recognition, setRecognition] = useState<any>(null);
 
   const states: AustralianState[] = ['NSW', 'VIC', 'TAS', 'WA', 'SA', 'QLD'];
@@ -310,11 +309,6 @@ const InsuranceQuiz = () => {
     setShowComparisonModal(true);
   };
 
-  // Logo helper function
-  const getLogoUrl = (providerId: string): string | null => {
-    // Default to .png extension - the browser will handle 404s
-    return `/logos/${providerId}.png`;
-  };
 
   // Sort functionality
   const handleSort = (column: 'priceRating' | 'featureScore' | 'dynamicFinderScore') => {
@@ -552,14 +546,6 @@ const InsuranceQuiz = () => {
     borderBottom: '1px solid #e5e7eb',
   };
 
-  const thCenterStyle: React.CSSProperties = {
-    backgroundColor: '#f3f4f6',
-    padding: '12px',
-    textAlign: 'center',
-    fontWeight: 'bold',
-    color: '#374151',
-    borderBottom: '1px solid #e5e7eb',
-  };
 
   const thSortableStyle: React.CSSProperties = {
     backgroundColor: '#f3f4f6',
@@ -1083,7 +1069,7 @@ const InsuranceQuiz = () => {
             </div>
 
             {/* Comparison Products */}
-            {comparisonProducts.map((product, index) => (
+            {comparisonProducts.map((product, _index) => (
               <div key={product.id} style={{
                 border: '1px solid #e5e7eb',
                 borderRadius: '8px',

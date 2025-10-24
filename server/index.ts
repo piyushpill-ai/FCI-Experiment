@@ -24,7 +24,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ 
     status: 'healthy', 
     timestamp: new Date().toISOString(),
@@ -33,7 +33,7 @@ app.get('/health', (req, res) => {
 });
 
 // API documentation endpoint
-app.get('/api', (req, res) => {
+app.get('/api', (_req, res) => {
   res.json({
     name: 'Car Insurance Comparison API',
     version: '1.0.0',
@@ -114,7 +114,7 @@ app.get('/api', (req, res) => {
 app.use('/api/insurance', insuranceRoutes);
 
 // Catch-all for unknown routes
-app.use('*', (req, res) => {
+app.use('*', (_req, res) => {
   res.status(404).json({
     success: false,
     error: 'Endpoint not found',
@@ -130,7 +130,7 @@ app.use('*', (req, res) => {
 });
 
 // Global error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Global error handler:', err);
   
   // Don't leak error details in production
