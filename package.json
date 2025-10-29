@@ -15,7 +15,8 @@
     "build:full": "tsc && vite build",
     "build:server": "tsc server/**/*.ts --outDir dist/server --module esnext --target es2020",
     "preview": "vite preview",
-    "start": "npm run build && npm run preview -- --port $PORT --host 0.0.0.0",
+    "start": "node server-heroku.js",
+    "heroku-postbuild": "npm run build",
     "server": "node dist/server/index.js"
   },
   "dependencies": {
