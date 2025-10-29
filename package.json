@@ -14,16 +14,13 @@
     "build:full": "tsc && vite build",
     "build:server": "tsc server/**/*.ts --outDir dist/server --module esnext --target es2020",
     "preview": "vite preview",
-    "start": "node server-heroku.js",
+    "start": "node server.js",
     "heroku-postbuild": "npm run build",
     "server": "node dist/server/index.js"
   },
   "dependencies": {
     "@types/papaparse": "^5.3.16",
-    "cors": "^2.8.5",
-    "express": "^5.1.0",
-    "express-rate-limit": "^8.0.1",
-    "helmet": "^8.1.0",
+    "express": "^4.18.2",
     "papaparse": "^5.5.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
