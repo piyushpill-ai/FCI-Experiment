@@ -1550,17 +1550,8 @@ const InsuranceQuiz = () => {
             )}
           </div>
 
-          {/* Responsive rendering: Mobile cards or Desktop table */}
-          {isMobile ? (
-            /* Mobile Card Layout */
-            <div>
-              {getSortedProducts().slice(0, 10).map((product) => (
-                <MobileProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          ) : (
-            /* Desktop Table Layout */
-            <div style={{ overflowX: 'auto' }}>
+          {/* Temporary: Force desktop table layout to debug white screen */}
+          <div style={{ overflowX: 'auto' }}>
           <table style={tableStyle}>
             <thead>
               <tr>
@@ -1700,8 +1691,7 @@ const InsuranceQuiz = () => {
             </tbody>
           </table>
           
-            </div>
-          )}
+          </div>
           
           <div style={{ 
             marginTop: '1rem', 
