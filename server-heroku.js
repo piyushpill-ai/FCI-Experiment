@@ -35,7 +35,7 @@ let insuranceData = [];
 
 async function loadInsuranceData() {
   try {
-    const csvPath = path.join(__dirname, 'public', 'data', 'insurance_products.csv');
+    const csvPath = path.join(__dirname, 'public', 'insurance-data.csv');
     const csvContent = await fs.readFile(csvPath, 'utf-8');
     
     return new Promise((resolve, reject) => {
