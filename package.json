@@ -10,7 +10,7 @@
     "dev": "vite",
     "dev:server": "ts-node --esm server/index.ts",
     "dev:full": "concurrently \"npm run dev\" \"npm run dev:server\"",
-    "build": "vite build",
+    "build:local": "vite build",
     "build:full": "tsc && vite build",
     "build:server": "tsc server/**/*.ts --outDir dist/server --module esnext --target es2020",
     "preview": "vite preview",
