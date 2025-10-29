@@ -40,6 +40,9 @@ const InsuranceQuiz = () => {
   // Voice control state
   const [_voiceSupported, setVoiceSupported] = useState(false);
   const [recognition, setRecognition] = useState<any>(null);
+  
+  // Mobile responsive state
+  const [isMobile, setIsMobile] = useState(false);
 
   const states: AustralianState[] = ['NSW', 'VIC', 'TAS', 'WA', 'SA', 'QLD'];
   const ageGroups: AgeGroup[] = ['< 25 years', '< 35 years', '< 65 years'];
@@ -47,6 +50,18 @@ const InsuranceQuiz = () => {
   const availableFeatures: SelectedFeature[] = ['STORM', 'WINDSCREEN', 'PERSONAL_EFFECTS', 'ACCIDENTAL_DAMAGE', 'NEW_CAR_REPLACEMENT'];
 
   // Load insurance data on component mount
+  // Mobile detection effect
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -706,6 +721,154 @@ const InsuranceQuiz = () => {
     );
   };
 
+  // Mobile Card Component for responsive design
+  const MobileProductCard = ({ product }: { product: ProcessedInsuranceProduct }) => {
+    return (
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        padding: '16px',
+        marginBottom: '16px',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        border: '1px solid #e5e7eb'
+      }}>
+        {/* Product Header */}
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+          <ProductLogo providerId={product.providerId} productName={product.name} />
+        </div>
+
+        {/* Scores Section */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '16px',
+          marginBottom: '16px'
+        }}>
+          {/* Price Rating */}
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#6b7280', marginBottom: '8px' }}>
+              Price Rating
+            </div>
+            {scoresLoading.priceRating ? (
+              <CircularLoadingSpinner size={50} />
+            ) : (
+              <CircularProgress value={product.priceRating} maxValue={9.9} size={50} />
+            )}
+          </div>
+
+          {/* Feature Score */}
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#6b7280', marginBottom: '8px' }}>
+              Feature Score
+            </div>
+            {scoresLoading.featureScore ? (
+              <CircularLoadingSpinner size={50} />
+            ) : (
+              <CircularProgress value={product.averageFeatureScore} maxValue={10} size={50} />
+            )}
+          </div>
+        </div>
+
+        {/* Dynamic Finder Score */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: '16px'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#6b7280', marginBottom: '8px' }}>
+              Dynamic Finder Score
+            </div>
+            {scoresLoading.dynamicFinderScore ? (
+              <BadgeLoadingSpinner />
+            ) : (
+              <span style={{
+                backgroundColor: getFeatureScoreColor(product.dynamicFinderScore),
+                color: 'white',
+                padding: '8px 16px',
+                borderRadius: '20px',
+                fontSize: '1.25rem',
+                fontWeight: 'bold',
+                display: 'inline-block'
+              }}
+              onTouchStart={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                showModal(product, { x: rect.left + rect.width / 2, y: rect.top - 100 });
+              }}
+              onTouchEnd={hideModalWithDelay}
+              >
+                {product.dynamicFinderScore.toFixed(1)}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Key Features */}
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#6b7280', marginBottom: '8px' }}>
+            Key Features
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr',
+            gap: '4px',
+            fontSize: '0.875rem'
+          }}>
+            {product.features.newCarReplacement && <span style={{ color: '#374151' }}>• New Car Replacement</span>}
+            {product.features.roadsideAssistance && <span style={{ color: '#374151' }}>• Roadside Assistance</span>}
+            {product.features.storm && <span style={{ color: '#374151' }}>• Storm Coverage</span>}
+            {product.features.windscreen && <span style={{ color: '#374151' }}>• Windscreen</span>}
+            {product.features.accidentalDamage && <span style={{ color: '#374151' }}>• Accidental Damage</span>}
+          </div>
+        </div>
+
+        {/* Action Button */}
+        <div style={{ display: 'flex', justifyContent: 'stretch' }}>
+          {isSponsoredProduct(product.name) ? (
+            <button
+              onClick={() => handleGoToSite(product.name)}
+              style={{
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                transition: 'background-color 0.2s',
+                width: '100%'
+              }}
+            >
+              Go to site
+            </button>
+          ) : (
+            <button
+              onClick={() => handleContinueComparison(product)}
+              style={{
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                transition: 'background-color 0.2s',
+                width: '100%'
+              }}
+            >
+              Continue
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // Logo component with fallback
   const ProductLogo = ({ providerId, productName }: { providerId: string; productName: string }) => {
     const [logoSrc, setLogoSrc] = useState<string | null>(null);
@@ -1352,7 +1515,7 @@ const InsuranceQuiz = () => {
       </div>
       
       {filteredProducts.length > 0 ? (
-        <div style={{ overflowX: 'auto' }}>
+        <div>
           <div style={{ 
             marginBottom: '1rem', 
             padding: '8px 12px', 
@@ -1362,8 +1525,8 @@ const InsuranceQuiz = () => {
             color: '#1e40af',
             border: '1px solid #dbeafe'
           }}>
-            💡 <strong>Tip:</strong> Click on Price Rating, Feature Score, or Dynamic Finder Score column headers to sort the results!
-            {sortColumn && (
+            💡 <strong>Tip:</strong> {isMobile ? 'Tap on Dynamic Finder Score badges to see details!' : 'Click on Price Rating, Feature Score, or Dynamic Finder Score column headers to sort the results!'}
+            {!isMobile && sortColumn && (
               <span style={{ marginLeft: '8px' }}>
                 Currently sorted by <strong>{sortColumn === 'priceRating' ? 'Price Rating' : sortColumn === 'featureScore' ? 'Feature Score' : 'Dynamic Finder Score'}</strong> ({sortDirection === 'desc' ? 'highest first' : 'lowest first'})
                 <button 
@@ -1383,6 +1546,18 @@ const InsuranceQuiz = () => {
               </span>
             )}
           </div>
+
+          {/* Responsive rendering: Mobile cards or Desktop table */}
+          {isMobile ? (
+            /* Mobile Card Layout */
+            <div>
+              {getSortedProducts().slice(0, 10).map((product) => (
+                <MobileProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : (
+            /* Desktop Table Layout */
+            <div style={{ overflowX: 'auto' }}>
           <table style={tableStyle}>
             <thead>
               <tr>
@@ -1521,6 +1696,9 @@ const InsuranceQuiz = () => {
               })}
             </tbody>
           </table>
+          
+            </div>
+          )}
           
           <div style={{ 
             marginTop: '1rem', 
