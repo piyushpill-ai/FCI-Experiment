@@ -32,7 +32,8 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 FCI Experiment server running on port ${PORT}`);
+  console.log(`✅ Using simplified server for reliable deployment`);
 });
 
 module.exports = app;
