@@ -53,13 +53,16 @@ const InsuranceQuiz = () => {
   // Mobile detection effect
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
+      if (typeof window !== 'undefined') {
+        setIsMobile(window.innerWidth <= 768);
+      }
     };
     
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', checkMobile);
+      return () => window.removeEventListener('resize', checkMobile);
+    }
   }, []);
 
   useEffect(() => {
@@ -792,11 +795,11 @@ const InsuranceQuiz = () => {
                 fontWeight: 'bold',
                 display: 'inline-block'
               }}
-              onTouchStart={(e) => {
+              onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 showModal(product, { x: rect.left + rect.width / 2, y: rect.top - 100 });
               }}
-              onTouchEnd={hideModalWithDelay}
+              onMouseLeave={hideModalWithDelay}
               >
                 {product.dynamicFinderScore.toFixed(1)}
               </span>
